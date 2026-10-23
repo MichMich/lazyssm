@@ -27,6 +27,10 @@ const (
 func (m Model) View() tea.View {
 	v := tea.NewView(m.render())
 	v.AltScreen = true
+	background := m.styles().background.GetBackground()
+	if _, unset := background.(lipgloss.NoColor); !unset {
+		v.BackgroundColor = background
+	}
 	return v
 }
 
@@ -182,6 +186,11 @@ func (m Model) rowLine(i int, in inventory.Instance, w int) string {
 		stateStyle := m.stateStyle(in.State)
 		if i == m.cursor {
 			background := m.styles().selStyle.GetForeground()
+			if m.store != nil && m.store.TransparentBackground {
+				background = m.styles().selStyle.GetBackground()
+				stateStyle = stateStyle.Foreground(m.styles().selStyle.GetForeground())
+				dotStyle = dotStyle.Foreground(m.styles().selStyle.GetForeground())
+			}
 			row = fmt.Sprintf(" %s %s %s %s %s", pin, name, age, stateStyle.Background(background).Render(state), dotStyle.Background(background).Render(dot))
 		} else {
 			row = fmt.Sprintf(" %s %s %s %s %s", pinStyle.Render(pin), m.styles().nameStyle.Render(name), m.styles().dimStyle.Render(age), stateStyle.Render(state), dotStyle.Render(dot))

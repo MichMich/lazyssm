@@ -227,18 +227,30 @@ pinned:
 Set `theme` in the same config file:
 
 ```yaml
-theme: tokyo-night
+theme: dracula
+transparent_background: true
 auto_login: true
 pinned:
   - i-0a1b2c3d4e5f6a7b8
 ```
 
+| Setting | Default | Effect |
+| ------- | ------- | ------ |
+| `theme` | `default` | Select the color preset. |
+| `transparent_background` | `false` | Use the terminal background when `true`. |
+| `auto_login` | `false` | Start SSO login when the session expires. |
+| `pinned` | `[]` | Store favorite instance IDs. |
+
 Preset values are `default`, `tokyo-night`, `dracula`, `nord`, and `catppuccin-mocha`.
 The default preset keeps the original AWS orange palette and terminal background.
-The other presets include their own dark background.
+The other presets use the same dark background for panel content and borders.
+Set `transparent_background: true` to use the terminal background with any theme.
+Text and border colors stay the same. The selected row keeps its highlight.
+This preference also applies when `--theme` overrides the configured theme.
 
 Use `lazyssm --theme dracula` to override the preset for one launch.
 The flag does not change the config file. Pin changes preserve the configured theme and `auto_login`.
+Pin changes also preserve `transparent_background`.
 An unknown config preset uses `default`. An unknown flag value reports an error.
 
 Age uses the EC2 `LaunchTime` value. It is not operating-system uptime or the original creation date.

@@ -27,7 +27,7 @@ func ValidTheme(name string) bool {
 	}
 }
 
-func makeStyles(name string) themeStyles {
+func makeStyles(name string, transparent bool) themeStyles {
 	p := palette{"#FF9900", "#FFB454", "#8B949E", "#586069", "#3FB950", "#F85149", "#F0B72F", "#1A1A1A", "#E6EDF3", ""}
 	switch name {
 	case "tokyo-night":
@@ -41,7 +41,16 @@ func makeStyles(name string) themeStyles {
 	default:
 		name = "default"
 	}
-	fg := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
+	if transparent {
+		p.background = ""
+	}
+	fg := func(c string) lipgloss.Style {
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(c))
+		if p.background != "" {
+			style = style.Background(lipgloss.Color(p.background))
+		}
+		return style
+	}
 	s := themeStyles{name: name}
 	s.titleStyle = fg(p.ink).Bold(true).Background(lipgloss.Color(p.accent)).Padding(0, 1)
 	s.metaStyle = fg(p.dim)
@@ -49,6 +58,9 @@ func makeStyles(name string) themeStyles {
 	s.faintStyle = fg(p.faint)
 	s.keyStyle = fg(p.accent2)
 	s.panelStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(p.faint))
+	if p.background != "" {
+		s.panelStyle = s.panelStyle.Background(lipgloss.Color(p.background)).BorderBackground(lipgloss.Color(p.background))
+	}
 	s.panelActiveStyle = s.panelStyle.BorderForeground(lipgloss.Color(p.accent))
 	s.panelTitleStyle = fg(p.accent).Bold(true)
 	s.selStyle = fg(p.ink).Bold(true).Background(lipgloss.Color(p.accent))
@@ -70,14 +82,15 @@ func makeStyles(name string) themeStyles {
 
 func (m Model) styles() themeStyles {
 	if m.appearance == nil {
-		return makeStyles("default")
+		return makeStyles("default", false)
 	}
 	return *m.appearance
 }
 
 // WithTheme overrides the appearance without changing the persisted configuration.
 func (m Model) WithTheme(name string) Model {
-	s := makeStyles(name)
+	transparent := m.store != nil && m.store.TransparentBackground
+	s := makeStyles(name, transparent)
 	m.appearance = &s
 	inputStyles := textinput.DefaultDarkStyles()
 	if s.name != "default" {

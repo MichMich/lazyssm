@@ -11,6 +11,22 @@ import (
 	"github.com/chalvinwz/lazyssm/internal/store"
 )
 
+func TestTransparentBackgroundWithThemeOverride(t *testing.T) {
+	st := &store.Store{Theme: "dracula", TransparentBackground: true}
+	m := New(awscfg.Clients{}, st, "", "", false).WithTheme("nord")
+	s := m.styles()
+	if m.View().BackgroundColor != nil || s.panelStyle.GetBackground() != (lipgloss.NoColor{}) || s.panelStyle.GetBorderTopBackground() != (lipgloss.NoColor{}) || s.nameStyle.GetBackground() != (lipgloss.NoColor{}) {
+		t.Fatal("transparent mode retained a theme background")
+	}
+	if s.name != "nord" || s.selStyle.GetBackground() == (lipgloss.NoColor{}) || s.nameStyle.GetForeground() == (lipgloss.NoColor{}) || st.Theme != "dracula" {
+		t.Fatal("transparent mode changed theme colors, selection, or configuration")
+	}
+	opaque := New(awscfg.Clients{}, &store.Store{Theme: "dracula"}, "", "", false)
+	if opaque.View().BackgroundColor == nil || opaque.styles().panelStyle.GetBorderTopBackground() == (lipgloss.NoColor{}) {
+		t.Fatal("default theme background was removed")
+	}
+}
+
 func TestInstanceAge(t *testing.T) {
 	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
 	for _, tc := range []struct {
@@ -89,7 +105,7 @@ func TestResponsiveIPColumn(t *testing.T) {
 }
 
 func TestDefaultPaletteAndThemeOverride(t *testing.T) {
-	s := makeStyles("")
+	s := makeStyles("", false)
 	if s.name != "default" || s.titleStyle.GetBackground() != lipgloss.Color("#FF9900") || s.nameStyle.GetForeground() != lipgloss.Color("#E6EDF3") {
 		t.Fatal("default palette changed")
 	}

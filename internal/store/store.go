@@ -17,8 +17,9 @@ const fileName = "config.yaml"
 
 // Store holds persisted pins and preferences.
 type Store struct {
-	Pinned []string `yaml:"pinned"`
-	Theme  string   `yaml:"theme,omitempty"`
+	Pinned                []string `yaml:"pinned"`
+	Theme                 string   `yaml:"theme,omitempty"`
+	TransparentBackground bool     `yaml:"transparent_background,omitempty"`
 	// AutoLogin persistently enables running `aws sso login` when the SSO
 	// session expires (equivalent to the --auto-login flag). omitempty keeps
 	// pin-toggle saves from injecting the key into configs that never set it.
