@@ -112,3 +112,24 @@ func TestAutoLoginOmittedWhenUnset(t *testing.T) {
 		t.Errorf("unset auto_login should be omitted from saves, got:\n%s", data)
 	}
 }
+
+func TestThemeSurvivesPinSave(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("theme: dracula\nauto_login: true\npinned: []\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := LoadFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.TogglePin("i-new"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := LoadFrom(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Theme != "dracula" || !saved.AutoLogin || !saved.IsPinned("i-new") {
+		t.Fatalf("config lost: %+v", saved)
+	}
+}

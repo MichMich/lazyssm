@@ -40,6 +40,10 @@ for the one task you repeat all day: find the instance and connect.
   fetched set; navigate results with arrow keys while typing.
 - **Toggle source** — switch between SSM-managed nodes only (default) and all
   EC2 instances; non-SSM instances are shown as not-ready.
+- **Instance age and state**: the list and detail sidebar show age since the EC2 launch time.
+  The list also shows EC2 state and a separate SSM readiness indicator.
+  An IP column appears when the list panel has at least 68 columns.
+- **Theme presets**: choose default, Tokyo Night, Dracula, Nord, or Catppuccin Mocha.
 - **Pin favorites** — pinned instance IDs are persisted as YAML locally and
   float to the top of the list on every launch.
 - **One-key connect** — `Enter` hands the terminal to `aws ssm start-session`;
@@ -123,6 +127,7 @@ lazyssm --version
 | `--profile`    | (AWS default)     | AWS profile; overrides `AWS_PROFILE`                     |
 | `--region`     | (AWS default)     | AWS region; overrides `AWS_REGION`                       |
 | `--auto-login` | off               | Run `aws sso login` automatically on SSO session expiry  |
+| `--theme`      | (local config)    | Theme preset for this launch                            |
 | `--version`    | —                 | Print version string and exit                            |
 
 ### Making a profile permanent
@@ -216,6 +221,37 @@ pinned:
   - i-0a1b2c3d4e5f6a7b8
   - i-0deadbeefcafe1234
 ```
+
+### Appearance
+
+Set `theme` in the same config file:
+
+```yaml
+theme: tokyo-night
+auto_login: true
+pinned:
+  - i-0a1b2c3d4e5f6a7b8
+```
+
+Preset values are `default`, `tokyo-night`, `dracula`, `nord`, and `catppuccin-mocha`.
+The default preset keeps the original AWS orange palette and terminal background.
+The other presets include their own dark background.
+
+Use `lazyssm --theme dracula` to override the preset for one launch.
+The flag does not change the config file. Pin changes preserve the configured theme and `auto_login`.
+An unknown config preset uses `default`. An unknown flag value reports an error.
+
+Age uses the EC2 `LaunchTime` value. It is not operating-system uptime or the original creation date.
+A stop/start cycle can change the launch time. A reboot does not reset it.
+The display shows minutes, hours and minutes, or days and hours.
+Missing launch times show `—`. Future launch times show `0m`.
+Age updates when the screen renders. Press `r` to refresh the inventory.
+
+EC2 state uses the AWS names, including `shutting-down` during termination.
+Green marks `running`. Amber marks `pending`, `stopping`, and `shutting-down`.
+Red marks `stopped` and `terminated`. Unknown state uses a dim `—`.
+The separate SSM indicator uses `●` for ready and `○` for not ready.
+State text and readiness symbols remain visible without color.
 
 ### Credential precedence
 
