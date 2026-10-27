@@ -115,7 +115,7 @@ func TestAutoLoginOmittedWhenUnset(t *testing.T) {
 
 func TestThemeSurvivesPinSave(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte("theme: dracula\ntransparent_background: true\nauto_login: true\npinned: []\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("theme: dracula\ntransparent_background: true\ncolumns: [name, ip, state, age, ssm]\nauto_login: true\npinned: []\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s, err := LoadFrom(path)
@@ -129,7 +129,7 @@ func TestThemeSurvivesPinSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Theme != "dracula" || !saved.TransparentBackground || !saved.AutoLogin || !saved.IsPinned("i-new") {
+	if len(saved.Columns) != 5 || saved.Columns[1] != "ip" || saved.Theme != "dracula" || !saved.TransparentBackground || !saved.AutoLogin || !saved.IsPinned("i-new") {
 		t.Fatalf("config lost: %+v", saved)
 	}
 }

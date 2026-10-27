@@ -9,6 +9,7 @@ import (
 	"github.com/chalvinwz/lazyssm/internal/awscfg"
 	"github.com/chalvinwz/lazyssm/internal/inventory"
 	"github.com/chalvinwz/lazyssm/internal/store"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestTransparentBackgroundWithThemeOverride(t *testing.T) {
@@ -53,13 +54,14 @@ func TestInstanceAge(t *testing.T) {
 func TestAppearanceContentAndWidths(t *testing.T) {
 	m := newTestModel(t)
 	m.loading = false
+	m.store.Columns = []string{"name", "age", "state", "ssm"}
 	m.visible = []inventory.Instance{{Name: "web-prod", InstanceID: "i-test", State: "shutting-down", SSMReady: false, LaunchTime: time.Now().Add(-49 * time.Hour)}}
 	for _, w := range []int{34, 48, 74, 120} {
-		line := m.rowLine(0, m.visible[0], w)
+		line := m.rowLine(0, m.visible[0], w, m.listColumns(w))
 		if got := lipgloss.Width(line); got > w {
 			t.Errorf("row width %d exceeds %d", got, w)
 		}
-		if !strings.Contains(line, "shutting-down") || !strings.Contains(line, "2d 1h") {
+		if w >= 48 && (!strings.Contains(line, "shutting-down") || !strings.Contains(line, "2d 1h")) {
 			t.Errorf("missing state/age: %q", line)
 		}
 	}
@@ -90,10 +92,11 @@ func TestThemePresetsAndIsolation(t *testing.T) {
 
 func TestResponsiveIPColumn(t *testing.T) {
 	m := newTestModel(t)
+	m.store.Columns = []string{"name", "ip", "state", "age", "ssm"}
 	m.visible = []inventory.Instance{{Name: "web", IP: "10.1.2.3", State: "running"}}
-	for _, w := range []int{34, 48, 67, 68, 74, 120} {
+	for _, w := range []int{34, 38, 39, 48, 62, 63, 120} {
 		got := m.listContent(w, 20)
-		if strings.Contains(got, "10.1.2.3") != (w >= 68) {
+		if strings.Contains(got, "10.1.2.3") != (w >= 39) {
 			t.Errorf("IP visibility at %d: %q", w, got)
 		}
 		for _, line := range strings.Split(got, "\n") {
@@ -124,7 +127,7 @@ func TestDemoFrames(t *testing.T) {
 		for _, size := range [][2]int{{60, 20}, {96, 24}, {120, 24}, {40, 12}} {
 			m.width, m.height = size[0], size[1]
 			frame := m.render()
-			if !strings.Contains(frame, "2d 1h") {
+			if size[0] >= 96 && !strings.Contains(frame, "2d 1h") {
 				t.Errorf("missing age for %s at %d", theme, size[0])
 			}
 			if size[0] >= 60 {
@@ -163,10 +166,13 @@ func TestAllListWidths(t *testing.T) {
 	m := NewDemo("", "")
 	m.visible = demoInstances()
 	m.loading = false
-	for w := 34; w <= 200; w++ {
-		for _, line := range strings.Split(m.listContent(w, 20), "\n") {
-			if got := lipgloss.Width(line); got > w {
-				t.Errorf("list width %d got %d: %q", w, got, line)
+	for _, columns := range [][]string{nil, {"name", "ip", "state", "age", "ssm"}, {"id", "name", "os", "agent", "ping", "ssm"}} {
+		m.store.Columns = columns
+		for w := 23; w <= 200; w++ {
+			for _, line := range strings.Split(m.listContent(w, 20), "\n") {
+				if got := lipgloss.Width(line); got > w {
+					t.Errorf("list width %d got %d: %q", w, got, line)
+				}
 			}
 		}
 	}
@@ -202,9 +208,91 @@ func TestSplitPanelDimensions(t *testing.T) {
 			t.Errorf("width = %d, want %d", got, w)
 		}
 		for _, line := range strings.Split(frame, "\n") {
-			if strings.Contains(line, "SSM") && !strings.Contains(line, "STATE") && !strings.Contains(line, "demo") {
+			if strings.Contains(line, "SSM") && !strings.Contains(line, "NAME") && !strings.Contains(line, "demo") {
 				t.Errorf("SSM header wrapped at %d: %q", w, line)
 			}
+		}
+	}
+}
+
+func TestColumnConfigurationAndNarrowDefaults(t *testing.T) {
+	m := newTestModel(t)
+	m.visible = []inventory.Instance{{Name: "web-prod-12345678", IP: "10.1.2.3", State: "running"}}
+	for w := 23; w <= 80; w++ {
+		columns := m.listColumns(w)
+		if columns[0].name != "name" || columns[0].width < 16 {
+			t.Fatalf("name squeezed at %d: %+v", w, columns)
+		}
+		for _, column := range columns {
+			if column.name == "ip" || column.name == "state" {
+				t.Fatalf("optional column visible by default: %+v", columns)
+			}
+			if column.name == "age" && w < 33 {
+				t.Fatalf("age visible without name space at %d", w)
+			}
+		}
+	}
+	m.store.Columns = []string{"ip", "name", "state", "age", "ssm", "ip", "typo", "id", "os", "agent", "ping"}
+	columns := m.listColumns(200)
+	var names []string
+	for _, column := range columns {
+		names = append(names, column.name)
+	}
+	if got := strings.Join(names, ","); got != "ip,name,state,age,ssm,id,os,agent,ping" {
+		t.Fatalf("column order = %s", got)
+	}
+	header := ansi.Strip(m.listContent(200, 20))
+	if strings.Index(header, "IP") > strings.Index(header, "NAME") {
+		t.Fatal("configured order ignored")
+	}
+	m.store.Columns = []string{"typo"}
+	if got := m.listColumns(80); len(got) != 3 || got[0].name != "name" {
+		t.Fatalf("invalid columns fallback: %+v", got)
+	}
+	m.store.Columns = []string{"state"}
+	if got := m.listColumns(80); len(got) != 2 || got[0].name != "name" {
+		t.Fatalf("missing name fallback: %+v", got)
+	}
+}
+
+func TestNamesTakePriorityOverOtherColumns(t *testing.T) {
+	m := newTestModel(t)
+	m.store.Columns = []string{"name", "ip", "state", "age", "ssm"}
+	m.visible = []inventory.Instance{
+		{Name: "short", IP: "10.0.0.1", State: "running"},
+		{Name: "web-production-eu-west-1-blue", IP: "10.0.0.2", State: "running"},
+	}
+	for w := 3 + lipgloss.Width(m.visible[1].Name); w <= 100; w++ {
+		columns := m.listColumns(w)
+		for i, in := range m.visible {
+			row := ansi.Strip(m.rowLine(i, in, w, columns))
+			if !strings.Contains(row, in.Name) || lipgloss.Width(row) > w {
+				t.Fatalf("name clipped or row overflowed at %d: %q", w, row)
+			}
+		}
+	}
+	columns := m.listColumns(24)
+	if len(columns) != 1 || columns[0].name != "name" {
+		t.Fatalf("other columns remained while the name did not fit: %+v", columns)
+	}
+	row := m.rowLine(1, m.visible[1], 24, columns)
+	if lipgloss.Width(row) > 24 {
+		t.Fatalf("name overflowed the panel: %q", row)
+	}
+}
+
+func TestSelectedRowHasOneHighlight(t *testing.T) {
+	for _, transparent := range []bool{false, true} {
+		st := &store.Store{Theme: "dracula", TransparentBackground: transparent, Columns: []string{"name", "state", "ssm", "ip", "age"}}
+		m := New(awscfg.Clients{}, st, "", "", false)
+		in := inventory.Instance{Name: "web-prod", State: "running", SSMReady: true, IP: "10.0.0.1", Pinned: true}
+		row := m.rowLine(0, in, 100, m.listColumns(100))
+		want := m.styles().selStyle.Width(100).Render(ansi.Strip(row))
+		if row != want {
+			t.Fatalf("selected row contains nested styles (transparent=%v): %q", transparent, row)
+		}
+		if !strings.Contains(ansi.Strip(row), "running") || !strings.Contains(ansi.Strip(row), "●") {
+			t.Fatal("selected row lost status")
 		}
 	}
 }

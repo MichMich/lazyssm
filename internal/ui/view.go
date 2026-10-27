@@ -109,14 +109,12 @@ func (m Model) titleBar() string {
 func (m Model) listContent(w, h int) string {
 	count := len(m.visible)
 	header := m.styles().panelTitleStyle.Render(fmt.Sprintf("instances (%d)", count))
-	if w >= 34 {
-		columns := padRight(truncate("NAME", listNameWidth(w)), listNameWidth(w)) + " "
-		if w >= 68 {
-			columns += padRight("IP", 15) + " "
-		}
-		columns += padRight("AGE", 9) + " " + padRight("STATE", 13) + " SSM"
-		header += "\n" + m.styles().dimStyle.Render("   "+columns)
+	var headings []string
+	columns := m.listColumns(w)
+	for _, column := range columns {
+		headings = append(headings, padRight(truncate(strings.ToUpper(column.name), column.width), column.width))
 	}
+	header += "\n" + m.styles().dimStyle.Render("   "+strings.Join(headings, " "))
 	rowsArea := h - lipgloss.Height(header)
 	if rowsArea < 1 {
 		rowsArea = 1
@@ -142,71 +140,9 @@ func (m Model) listContent(w, h int) string {
 	lines := make([]string, 0, rowsArea+1)
 	lines = append(lines, header)
 	for i := start; i < end; i++ {
-		lines = append(lines, m.rowLine(i, m.visible[i], w))
+		lines = append(lines, m.rowLine(i, m.visible[i], w, columns))
 	}
 	return strings.Join(lines, "\n")
-}
-
-func (m Model) rowLine(i int, in inventory.Instance, w int) string {
-	pin := " "
-	if in.Pinned {
-		pin = "★"
-	}
-	name := in.Name
-	if name == "" {
-		name = "(no Name)"
-	}
-	age := instanceAge(in.LaunchTime, time.Now())
-	state := instanceState(in.State)
-	dot := "○"
-	dotStyle := m.styles().offlineStyle
-	if in.SSMReady {
-		dot = "●"
-		dotStyle = m.styles().onlineStyle
-	}
-	var row string
-	if w < 34 {
-		row = truncate(fmt.Sprintf("%s %s %s %s %s", pin, name, age, state, dot), w)
-	} else {
-		nameW := listNameWidth(w)
-		name = padRight(truncate(name, nameW), nameW)
-		if w >= 68 {
-			ip := in.IP
-			if ip == "" {
-				ip = "—"
-			}
-			name += " " + padRight(truncate(ip, 15), 15)
-		}
-		age = padRight(age, 9)
-		state = padRight(state, 13)
-		pinStyle := m.styles().faintStyle
-		if in.Pinned {
-			pinStyle = m.styles().pinStyle
-		}
-		stateStyle := m.stateStyle(in.State)
-		if i == m.cursor {
-			background := m.styles().selStyle.GetForeground()
-			if m.store != nil && m.store.TransparentBackground {
-				background = m.styles().selStyle.GetBackground()
-				stateStyle = stateStyle.Foreground(m.styles().selStyle.GetForeground())
-				dotStyle = dotStyle.Foreground(m.styles().selStyle.GetForeground())
-			}
-			row = fmt.Sprintf(" %s %s %s %s %s", pin, name, age, stateStyle.Background(background).Render(state), dotStyle.Background(background).Render(dot))
-		} else {
-			row = fmt.Sprintf(" %s %s %s %s %s", pinStyle.Render(pin), m.styles().nameStyle.Render(name), m.styles().dimStyle.Render(age), stateStyle.Render(state), dotStyle.Render(dot))
-		}
-	}
-	if i == m.cursor {
-		return m.styles().selStyle.Width(w).Render(row)
-	}
-	return row
-}
-
-func listNameWidth(w int) int {
-	if w >= 68 {
-		return w - 48
-	}
-	return max(1, w-32)
 }
 
 func instanceState(state string) string {
@@ -336,19 +272,12 @@ func (m Model) renderCompact() string {
 		b.WriteString(m.styles().dimStyle.Render("loading…"))
 		return b.String()
 	}
+	columns := m.listColumns(m.width)
 	for i, in := range m.visible {
 		if i >= m.height-3 {
 			break
 		}
-		mark := "  "
-		if i == m.cursor {
-			mark = "> "
-		}
-		name := in.Name
-		if name == "" {
-			name = in.InstanceID
-		}
-		b.WriteString(mark + truncate(name+" "+instanceAge(in.LaunchTime, time.Now())+" "+instanceState(in.State), m.width-2) + "\n")
+		b.WriteString(m.rowLine(i, in, m.width, columns) + "\n")
 	}
 	return b.String()
 }
